@@ -23,7 +23,6 @@ export async function GET(request: NextRequest) {
     const formattedFiles = response.files.map(file => ({
       key: file.key,
       name: file.name,
-      size: file.size,
       url: `https://utfs.io/f/${file.key}`,
       uploadedAt: file.uploadedAt,
       type: file.type || 'unknown',
