@@ -3,16 +3,47 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Eye, Music, Video, Calendar, HardDrive, X, Camera, DownloadCloud } from 'lucide-react';
 
-const FileViewer = () => {
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [filter, setFilter] = useState('all');
-  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+// Tip tanımlamaları
+interface FileData {
+  key: string;
+  name: string;
+  fileName?: string;
+  url: string;
+  size?: number;
+  fileSize?: number;
+  type?: string;
+  fileType?: 'image' | 'video' | 'audio' | null;
+}
+
+interface FileSystemDirectoryHandle {
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
+}
+
+interface FileSystemFileHandle {
+  createWritable(): Promise<FileSystemWritableFileStream>;
+}
+
+interface FileSystemWritableFileStream {
+  write(data: any): Promise<void>;
+  close(): Promise<void>;
+}
+
+declare global {
+  interface Window {
+    showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>;
+  }
+}
+
+const FileViewer: React.FC = () => {
+  const [files, setFiles] = useState<FileData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
+  const [filter, setFilter] = useState<'all' | 'image' | 'video' | 'audio'>('all');
+  const [isDownloadingAll, setIsDownloadingAll] = useState<boolean>(false);
 
   // Dosya indirme fonksiyonu
-  const downloadFile = async (file, directoryHandle = null) => {
+  const downloadFile = async (file: FileData, directoryHandle: FileSystemDirectoryHandle | null = null): Promise<void> => {
     try {
       const response = await fetch(file.url);
       const blob = await response.blob();
@@ -49,30 +80,23 @@ const FileViewer = () => {
   };
 
   // Tümünü indirme fonksiyonu
-  const downloadAllFiles = async (filesToDownload) => {
+  const downloadAllFiles = async (filesToDownload: FileData[]): Promise<void> => {
     if (filesToDownload.length === 0) return;
     
     setIsDownloadingAll(true);
     
     try {
-      let directoryHandle = null;
+      let directoryHandle: FileSystemDirectoryHandle | null = null;
       
       // Modern File System Access API'yi destekleyip desteklemediğini kontrol et
-      if ('showDirectoryPicker' in window) {
+      if (window.showDirectoryPicker) {
         try {
-          directoryHandle = await window.showDirectoryPicker({
-            mode: 'readwrite'
-          });
+          directoryHandle = await window.showDirectoryPicker();
         } catch (error) {
-          if (error.name === 'AbortError') {
-            // Kullanıcı iptal etti
-            setIsDownloadingAll(false);
-            return;
-          }
-          console.warn('Klasör seçimi desteklenmiyor, geleneksel yönteme geçiliyor');
+          console.error('Dizin seçilemedi:', error);
         }
       }
-      
+
       // Dosyaları sırayla indir
       for (let i = 0; i < filesToDownload.length; i++) {
         await downloadFile(filesToDownload[i], directoryHandle);
@@ -97,17 +121,17 @@ const FileViewer = () => {
   };
 
   // Dosya tipini belirleme fonksiyonu - sadece desteklenen formatlar
-  const getFileType = (file) => {
+  const getFileType = (file: FileData): 'image' | 'video' | 'audio' | null => {
     const extension = file.name.split('.').pop()?.toLowerCase();
     const mimeType = file.type?.toLowerCase();
     
-    if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(extension)) {
+    if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(extension || '')) {
       return 'image';
     }
-    if (mimeType?.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension)) {
+    if (mimeType?.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension || '')) {
       return 'video';
     }
-    if (mimeType?.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(extension)) {
+    if (mimeType?.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(extension || '')) {
       return 'audio';
     }
     return null; // Desteklenmeyen formatlar ignore edilecek
@@ -115,7 +139,7 @@ const FileViewer = () => {
 
   // Dosyaları yükle
   useEffect(() => {
-    const loadFiles = async () => {
+    const loadFiles = async (): Promise<void> => {
       try {
         setLoading(true);
         const response = await fetch('/api/uploadthing');
@@ -128,14 +152,14 @@ const FileViewer = () => {
         
         if (data.success) {
           // Sadece desteklenen formatları filtrele  
-          const supportedFiles = data.files
-            .map(file => ({
+          const supportedFiles: FileData[] = data.files
+            .map((file: any) => ({
               ...file,
               fileType: getFileType(file),
               size: file.size || file.fileSize || 0,
               name: file.name || file.fileName || 'İsimsiz dosya'
             }))
-            .filter(file => file.fileType !== null);
+            .filter((file: FileData) => file.fileType !== null);
           
           setFiles(supportedFiles);
         } else {
@@ -143,7 +167,7 @@ const FileViewer = () => {
         }
       } catch (err) {
         console.error('Dosya yükleme hatası:', err);
-        setError(err.message);
+        setError(err instanceof Error ? err.message : 'Bilinmeyen hata');
       } finally {
         setLoading(false);
       }
@@ -167,8 +191,8 @@ const FileViewer = () => {
   };
 
   // Aktif filtrenin etiketini getir
-  const getFilterLabel = () => {
-    const filterLabels = {
+  const getFilterLabel = (): string => {
+    const filterLabels: Record<string, string> = {
       all: 'Tüm Anıları',
       image: 'Tüm Fotoğrafları',
       video: 'Tüm Videoları',
@@ -178,11 +202,16 @@ const FileViewer = () => {
   };
 
   // Browser desteğini kontrol et
-  const isDirectoryPickerSupported = 'showDirectoryPicker' in window;
+  const isDirectoryPickerSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
 
   // Dosya içeriği gösterme komponenti
-  const FileContent = ({ file, isModal = false }) => {
-    const [audioPlaying, setAudioPlaying] = useState(false);
+  const FileContent: React.FC<{ file: FileData; isModal?: boolean }> = ({ file, isModal = false }) => {
+    const [audioPlaying, setAudioPlaying] = useState<boolean>(false);
+
+    const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>): void => {
+      const target = e.target as HTMLImageElement;
+      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkdvcnVudHUgeXVrbGVuZW1lZGk8L3RleHQ+PC9zdmc+';
+    };
 
     switch (file.fileType) {
       case 'image':
@@ -196,9 +225,7 @@ const FileViewer = () => {
                   ? 'max-w-full max-h-96 object-contain' 
                   : 'w-full h-full'
               }`}
-              onError={(e) => {
-                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjNmNGY2Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkdvcnVudHUgeXVrbGVuZW1lZGk8L3RleHQ+PC9zdmc+';
-              }}
+              onError={handleImageError}
             />
           </div>
         );
@@ -285,10 +312,10 @@ const FileViewer = () => {
         {/* Filtre Butonları */}
         <div className="flex flex-wrap gap-3 mb-6 justify-center">
           {[
-            { key: 'all', label: 'Tümü', icon: '💫', count: fileCounts.all },
-            { key: 'image', label: 'Fotoğraflar', icon: '📸', count: fileCounts.image },
-            { key: 'video', label: 'Videolar', icon: '🎥', count: fileCounts.video },
-            { key: 'audio', label: 'Ses Kayıtları', icon: '🎵', count: fileCounts.audio }
+            { key: 'all' as const, label: 'Tümü', icon: '💫', count: fileCounts.all },
+            { key: 'image' as const, label: 'Fotoğraflar', icon: '📸', count: fileCounts.image },
+            { key: 'video' as const, label: 'Videolar', icon: '🎥', count: fileCounts.video },
+            { key: 'audio' as const, label: 'Ses Kayıtları', icon: '🎵', count: fileCounts.audio }
           ].map(filterOption => (
             <button
               key={filterOption.key}
