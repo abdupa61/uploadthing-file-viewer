@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
       key: file.key,
       name: file.name,
       url: `https://utfs.io/f/${file.key}`,
-      type: file.type || 'unknown',
       // Ek bilgiler ekleyebilirsiniz
       customId: file.customId || null,
       metadata: file.metadata || {}
