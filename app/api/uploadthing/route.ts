@@ -24,17 +24,12 @@ export async function GET(request: NextRequest) {
       key: file.key,
       name: file.name,
       url: `https://utfs.io/f/${file.key}`,
-      uploadedAt: file.uploadedAt,
       type: file.type || 'unknown',
       // Ek bilgiler ekleyebilirsiniz
       customId: file.customId || null,
       metadata: file.metadata || {}
     }));
     
-    // Tarihe göre sırala (en yeni önce)
-    formattedFiles.sort((a, b) => 
-      new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
-    );
     
     return NextResponse.json({
       success: true,
