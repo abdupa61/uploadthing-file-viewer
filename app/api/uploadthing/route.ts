@@ -19,20 +19,15 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Dosyaları istediğimiz formatta düzenle - sadece mevcut property'leri kullan
+    // Dosyaları istediğimiz formatta düzenle
     const formattedFiles = response.files.map(file => ({
-      id: file.id,
       key: file.key,
       name: file.name,
       url: `https://utfs.io/f/${file.key}`,
-      status: file.status,
-      customId: file.customId || null,
-      // Ek bilgiler - güvenli şekilde ekle
-      uploadedAt: new Date().toISOString(), // Şu anki zamanı kullan
-      type: 'unknown', // Varsayılan tip
-      size: 0 // Varsayılan boyut
+      // Ek bilgiler ekleyebilirsiniz
+      customId: file.customId || null
     }));
-    
+
     return NextResponse.json({
       success: true,
       files: formattedFiles,
@@ -120,26 +115,18 @@ export async function PATCH(request: NextRequest) {
     
     // Dosya bilgilerini güncelle (örneğin metadata)
     // Bu özellik UploadThing API'sine bağlı olarak değişebilir
-    // Şimdilik basit bir response döndür
     
     return NextResponse.json({
       success: true,
       message: 'Dosya bilgileri güncellendi',
-      updatedKey: fileKey,
-      updatedData: body
+      updatedKey: fileKey
     });
     
   } catch (error) {
     console.error('Dosya güncelleme hatası:', error);
     
-    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-    
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Dosya güncellenirken hata oluştu',
-        details: errorMessage
-      },
+      { success: false, error: 'Dosya güncellenirken hata oluştu' },
       { status: 500 }
     );
   }
