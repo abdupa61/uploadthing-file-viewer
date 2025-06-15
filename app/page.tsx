@@ -44,7 +44,8 @@ const FileViewer: React.FC = () => {
   const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState<boolean>(false);
   const [fileToDelete, setFileToDelete] = useState<FileData | null>(null);
-
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedCountInfo, setDeletedCountInfo] = useState(0);
   // Dosya silme fonksiyonu
   const deleteFile = async (fileKey: string): Promise<boolean> => {
     try {
@@ -63,15 +64,21 @@ const FileViewer: React.FC = () => {
   // Tekli dosya silme işlemi
   const handleDeleteFile = async (file: FileData): Promise<void> => {
     const success = await deleteFile(file.key);
-    
+  
     if (success) {
       setFiles(prevFiles => prevFiles.filter(f => f.key !== file.key));
       setFileToDelete(null);
       if (selectedFile?.key === file.key) {
         setSelectedFile(null);
       }
+  
+      // ✅ Bildirimi göster
+      setDeletedCountInfo(1); // Tek bir dosya
+      setShowDeleteSuccess(true);
+      setTimeout(() => setShowDeleteSuccess(false), 4000);
     } else {
-      alert('Dosya silinirken bir hata oluştu.');
+      // ❌ (Opsiyonel) Hata bildirimi istersen burada da ekleyebiliriz
+      alert("Dosya silinirken bir hata oluştu.");
     }
   };
 
@@ -81,30 +88,30 @@ const FileViewer: React.FC = () => {
     
     setIsDeletingAll(true);
     let deletedCount = 0;
-    
+  
     try {
       for (const file of filesToDelete) {
         const success = await deleteFile(file.key);
         if (success) {
           deletedCount++;
-          // UI'yi güncelle
           setFiles(prevFiles => prevFiles.filter(f => f.key !== file.key));
         }
-        // API rate limiting için kısa bir bekleme
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      
-      alert(`${deletedCount} dosya başarıyla silindi!`);
+  
+      setDeletedCountInfo(deletedCount);
+      setShowDeleteSuccess(true);
+      setTimeout(() => setShowDeleteSuccess(false), 4000); // Bildirim 4 saniye sonra kaybolur
+  
       setShowDeleteAllConfirm(false);
-      
+  
     } catch (error) {
       console.error('Toplu silme hatası:', error);
-      alert(`${deletedCount} dosya silindi, ancak bazı dosyalar silinemedi.`);
+      // İstersen burada farklı bir hata bildirimi de gösterebilirsin
     } finally {
       setIsDeletingAll(false);
     }
   };
-
   // Dosya indirme fonksiyonu
   const downloadFile = async (file: FileData, directoryHandle: FileSystemDirectoryHandle | null = null): Promise<void> => {
     try {
@@ -451,7 +458,12 @@ const FileViewer: React.FC = () => {
             </p>
           </div>
         )}
-
+        {showDeleteSuccess && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
+            <span className="text-lg">🗑️</span>
+            <span className="font-semibold">{deletedCountInfo} dosya başarıyla silindi!</span>
+          </div>
+        )}
         {/* Dosya Listesi */}
         {filteredFiles.length === 0 ? (
           <div className="text-center py-3">
