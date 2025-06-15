@@ -412,40 +412,39 @@ const FileViewer: React.FC = () => {
               <button
                 onClick={() => downloadAllFiles(filteredFiles)}
                 disabled={isDownloadingAll}
-                className={`bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-3 px-8 rounded-xl text-lg font-semibold flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg ${
+                className={`bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-2 px-4 rounded-lg text-sm font-medium flex items-center space-x-2 transition-all transform hover:scale-105 shadow-md ${
                   isDownloadingAll ? 'opacity-75 cursor-not-allowed' : ''
                 }`}
               >
                 {isDownloadingAll ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>İndiriliyor...</span>
                   </>
                 ) : (
                   <>
-                    <DownloadCloud className="w-6 h-6" />
+                    <DownloadCloud className="w-4 h-4" />
                     <span className="hidden sm:inline">{getFilterLabel()} İndir ({filteredFiles.length} dosya)</span>
                     <span className="sm:hidden">İndir ({filteredFiles.length})</span>
                   </>
                 )}
               </button>
-
               {/* Tümünü Sil Butonu */}
               <button
                 onClick={() => setShowDeleteAllConfirm(true)}
                 disabled={isDeletingAll}
-                className={`bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-3 px-8 rounded-xl text-lg font-semibold flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg ${
+                className={`bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-2 px-4 rounded-lg text-sm font-medium flex items-center space-x-2 transition-all transform hover:scale-105 shadow-md ${
                   isDeletingAll ? 'opacity-75 cursor-not-allowed' : ''
                 }`}
               >
                 {isDeletingAll ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                     <span>Siliniyor...</span>
                   </>
                 ) : (
                   <>
-                    <Trash2 className="w-6 h-6" />
+                    <Trash2 className="w-4 h-4" />
                     <span>{getFilterLabel()} Sil ({filteredFiles.length} dosya)</span>
                   </>
                 )}
@@ -500,26 +499,30 @@ const FileViewer: React.FC = () => {
                   </h3>
                   
                   {/* Aksiyon Butonları */}
-                  <div className="flex space-x-2">
+                  <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
                     <button
                       onClick={() => setSelectedFile(file)}
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center space-x-1 transition-all"
+                      className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white text-xs sm:text-sm py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center space-x-1 transition-all"
                     >
                       <Eye className="w-3 h-3" />
-                      <span>Görüntüle</span>
+                      <span className="hidden xs:inline sm:inline">Görüntüle</span>
                     </button>
-                    <button
-                      onClick={() => downloadFile(file)}
-                      className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center transition-all"
-                    >
-                      <Download className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => setFileToDelete(file)}
-                      className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center transition-all"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => downloadFile(file)}
+                        className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white text-xs sm:text-sm py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center transition-all"
+                      >
+                        <Download className="w-3 h-3" />
+                        <span className="ml-1 sm:hidden">İndir</span>
+                      </button>
+                      <button
+                        onClick={() => setFileToDelete(file)}
+                        className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-xs sm:text-sm py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center transition-all"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span className="ml-1 sm:hidden">Sil</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
