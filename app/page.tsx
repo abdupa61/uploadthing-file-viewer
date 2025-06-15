@@ -304,7 +304,7 @@ const FileViewer: React.FC = () => {
         {/* Header */}
         <div className="mb-8 text-center">
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-pink-800 to-purple-600 bg-clip-text text-transparent mb-1">
-            Düğününüzdeki Sevdiklerinizin Yüklediği Anılar 💕
+            Sevdiklerinizin Yüklediği Anılar 💕
           </h1>
           <p className="text-gray-500 md:text-2xl mt-2">En güzel anılarımızı görüntüleyin ve indirin</p>
         </div>
