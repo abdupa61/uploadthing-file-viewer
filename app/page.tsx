@@ -1,5 +1,5 @@
 "use client";
-
+import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
 import { Download, Eye, Music, Video, Calendar, HardDrive, X, Camera, DownloadCloud, Trash2, AlertTriangle } from 'lucide-react';
 
@@ -287,9 +287,11 @@ const FileViewer: React.FC = () => {
       case 'image':
         return (
           <div className={`flex justify-center ${isModal ? '' : 'h-48'}`}>
-            <img 
+            <Image 
               src={file.url} 
               alt={file.name}
+              width={isModal ? 400 : 300}
+              height={isModal ? 384 : 192}
               className={`rounded-lg shadow-sm object-cover ${
                 isModal 
                   ? 'max-w-full max-h-96 object-contain' 
@@ -580,7 +582,7 @@ const FileViewer: React.FC = () => {
               </h3>
               
               <p className="text-gray-600 text-center mb-6">
-                "<span className="font-medium">{fileToDelete.name}</span>" dosyasını silmek istediğinizden emin misiniz? 
+                &quot;<span className="font-medium">{fileToDelete.name}</span>&quot; dosyasını silmek istediğinizden emin misiniz? 
                 Bu işlem geri alınamaz.
               </p>
               
