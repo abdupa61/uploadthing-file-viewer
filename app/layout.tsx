@@ -10,8 +10,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Upload A Thing",
-  description: "Upload A Thing",
+  title: "Anılar",
+  description: "En güzel anılarımızı görüntüleyin ve indirin",
 };
 
 export default function RootLayout({
