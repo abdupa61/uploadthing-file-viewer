@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Download, Eye, Music, Video, Calendar, HardDrive, X, Camera, DownloadCloud } from 'lucide-react';
+import { Download, Eye, Music, Video, Calendar, HardDrive, X, Camera, DownloadCloud, Trash2, AlertTriangle } from 'lucide-react';
 
 // Tip tanımlamaları
 interface FileData {
@@ -41,6 +41,69 @@ const FileViewer: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
   const [filter, setFilter] = useState<'all' | 'image' | 'video' | 'audio'>('all');
   const [isDownloadingAll, setIsDownloadingAll] = useState<boolean>(false);
+  const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState<boolean>(false);
+  const [fileToDelete, setFileToDelete] = useState<FileData | null>(null);
+
+  // Dosya silme fonksiyonu
+  const deleteFile = async (fileKey: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/uploadthing?key=${fileKey}`, {
+        method: 'DELETE',
+      });
+      
+      const result = await response.json();
+      return result.success;
+    } catch (error) {
+      console.error('Dosya silme hatası:', error);
+      return false;
+    }
+  };
+
+  // Tekli dosya silme işlemi
+  const handleDeleteFile = async (file: FileData): Promise<void> => {
+    const success = await deleteFile(file.key);
+    
+    if (success) {
+      setFiles(prevFiles => prevFiles.filter(f => f.key !== file.key));
+      setFileToDelete(null);
+      if (selectedFile?.key === file.key) {
+        setSelectedFile(null);
+      }
+    } else {
+      alert('Dosya silinirken bir hata oluştu.');
+    }
+  };
+
+  // Tüm filtrelenmiş dosyaları silme işlemi
+  const handleDeleteAllFiles = async (filesToDelete: FileData[]): Promise<void> => {
+    if (filesToDelete.length === 0) return;
+    
+    setIsDeletingAll(true);
+    let deletedCount = 0;
+    
+    try {
+      for (const file of filesToDelete) {
+        const success = await deleteFile(file.key);
+        if (success) {
+          deletedCount++;
+          // UI'yi güncelle
+          setFiles(prevFiles => prevFiles.filter(f => f.key !== file.key));
+        }
+        // API rate limiting için kısa bir bekleme
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      alert(`${deletedCount} dosya başarıyla silindi!`);
+      setShowDeleteAllConfirm(false);
+      
+    } catch (error) {
+      console.error('Toplu silme hatası:', error);
+      alert(`${deletedCount} dosya silindi, ancak bazı dosyalar silinemedi.`);
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
 
   // Dosya indirme fonksiyonu
   const downloadFile = async (file: FileData, directoryHandle: FileSystemDirectoryHandle | null = null): Promise<void> => {
@@ -332,28 +395,52 @@ const FileViewer: React.FC = () => {
           ))}
         </div>
 
-        {/* Tümünü İndir Butonu */}
+        {/* Toplu İşlem Butonları */}
         {filteredFiles.length > 0 && (
-          <div className="mb-8 flex flex-col items-center space-y-2">
-            <button
-              onClick={() => downloadAllFiles(filteredFiles)}
-              disabled={isDownloadingAll}
-              className={`bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-3 px-8 rounded-xl text-lg font-semibold flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg ${
-                isDownloadingAll ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
-            >
-              {isDownloadingAll ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>İndiriliyor...</span>
-                </>
-              ) : (
-                <>
-                  <DownloadCloud className="w-6 h-6" />
-                  <span>{getFilterLabel()} İndir ({filteredFiles.length} dosya)</span>
-                </>
-              )}
-            </button>
+          <div className="mb-8 flex flex-col items-center space-y-4">
+            <div className="flex flex-wrap gap-4 justify-center">
+              {/* Tümünü İndir Butonu */}
+              <button
+                onClick={() => downloadAllFiles(filteredFiles)}
+                disabled={isDownloadingAll}
+                className={`bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-3 px-8 rounded-xl text-lg font-semibold flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg ${
+                  isDownloadingAll ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
+              >
+                {isDownloadingAll ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>İndiriliyor...</span>
+                  </>
+                ) : (
+                  <>
+                    <DownloadCloud className="w-6 h-6" />
+                    <span>{getFilterLabel()} İndir ({filteredFiles.length} dosya)</span>
+                  </>
+                )}
+              </button>
+
+              {/* Tümünü Sil Butonu */}
+              <button
+                onClick={() => setShowDeleteAllConfirm(true)}
+                disabled={isDeletingAll}
+                className={`bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-3 px-8 rounded-xl text-lg font-semibold flex items-center space-x-3 transition-all transform hover:scale-105 shadow-lg ${
+                  isDeletingAll ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
+              >
+                {isDeletingAll ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>Siliniyor...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-6 h-6" />
+                    <span>{getFilterLabel()} Sil ({filteredFiles.length} dosya)</span>
+                  </>
+                )}
+              </button>
+            </div>
             
             {/* Browser desteği bilgisi */}
             <p className="text-sm text-gray-500 text-center max-w-md">
@@ -412,6 +499,12 @@ const FileViewer: React.FC = () => {
                     >
                       <Download className="w-3 h-3" />
                     </button>
+                    <button
+                      onClick={() => setFileToDelete(file)}
+                      className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-sm py-2 px-3 rounded-lg flex items-center justify-center transition-all"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -419,7 +512,7 @@ const FileViewer: React.FC = () => {
           </div>
         )}
 
-        {/* Modal */}
+        {/* Dosya Görüntüleme Modalı */}
         {selectedFile && (
           <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
@@ -436,7 +529,7 @@ const FileViewer: React.FC = () => {
                 
                 <FileContent file={selectedFile} isModal={true} />
                 
-                <div className="mt-6 flex justify-center">
+                <div className="mt-6 flex justify-center space-x-4">
                   <button
                     onClick={() => downloadFile(selectedFile)}
                     className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-3 px-6 rounded-lg flex items-center space-x-2 transition-all transform hover:scale-105"
@@ -444,7 +537,93 @@ const FileViewer: React.FC = () => {
                     <Download className="w-4 h-4" />
                     <span>İndir</span>
                   </button>
+                  <button
+                    onClick={() => {
+                      setFileToDelete(selectedFile);
+                      setSelectedFile(null);
+                    }}
+                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-6 rounded-lg flex items-center space-x-2 transition-all transform hover:scale-105"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Sil</span>
+                  </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tekli Dosya Silme Onay Modalı */}
+        {fileToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-red-100 p-3 rounded-full">
+                  <AlertTriangle className="w-8 h-8 text-red-600" />
+                </div>
+              </div>
+              
+              <h3 className="text-xl font-semibold text-gray-800 text-center mb-2">
+                Dosyayı Sil
+              </h3>
+              
+              <p className="text-gray-600 text-center mb-6">
+                "<span className="font-medium">{fileToDelete.name}</span>" dosyasını silmek istediğinizden emin misiniz? 
+                Bu işlem geri alınamaz.
+              </p>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setFileToDelete(null)}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-4 rounded-lg font-medium transition-all"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={() => handleDeleteFile(fileToDelete)}
+                  className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-4 rounded-lg font-medium transition-all"
+                >
+                  Sil
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Toplu Silme Onay Modalı */}
+        {showDeleteAllConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-red-100 p-3 rounded-full">
+                  <AlertTriangle className="w-8 h-8 text-red-600" />
+                </div>
+              </div>
+              
+              <h3 className="text-xl font-semibold text-gray-800 text-center mb-2">
+                Tüm Dosyaları Sil
+              </h3>
+              
+              <p className="text-gray-600 text-center mb-6">
+                {getFilterLabel()} ({filteredFiles.length} dosya) silmek istediğinizden emin misiniz? 
+                Bu işlem geri alınamaz.
+              </p>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setShowDeleteAllConfirm(false)}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-4 rounded-lg font-medium transition-all"
+                  disabled={isDeletingAll}
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={() => handleDeleteAllFiles(filteredFiles)}
+                  disabled={isDeletingAll}
+                  className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3 px-4 rounded-lg font-medium transition-all disabled:opacity-75"
+                >
+                  {isDeletingAll ? 'Siliniyor...' : 'Tümünü Sil'}
+                </button>
               </div>
             </div>
           </div>
