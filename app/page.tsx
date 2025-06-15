@@ -424,7 +424,7 @@ const FileViewer: React.FC = () => {
                 ) : (
                   <>
                     <DownloadCloud className="w-4 h-4" />
-                    <span className="hidden sm:inline">{getFilterLabel()} İndir ({filteredFiles.length} dosya)</span>
+                    <span className="hidden sm:inline">Tümünü İndir ({filteredFiles.length} dosya)</span>
                     <span className="sm:hidden">İndir ({filteredFiles.length})</span>
                   </>
                 )}
@@ -445,7 +445,7 @@ const FileViewer: React.FC = () => {
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    <span>{getFilterLabel()} Sil ({filteredFiles.length} dosya)</span>
+                    <span>Tümünü Sil ({filteredFiles.length} dosya)</span>
                   </>
                 )}
               </button>
