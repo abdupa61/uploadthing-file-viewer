@@ -1,7 +1,7 @@
 "use client";
 import Image from 'next/image';
 import React, { useState, useEffect } from 'react';
-import { Download, Eye, Music, Video, Calendar, HardDrive, X, Camera, DownloadCloud, Trash2, AlertTriangle } from 'lucide-react';
+import { Download, Eye, Music, Video, Calendar, HardDrive, X, Camera, DownloadCloud, Trash2, AlertTriangle, FileText } from 'lucide-react';
 
 // Tip tanımlamaları
 interface FileData {
@@ -12,7 +12,7 @@ interface FileData {
   size?: number;
   fileSize?: number;
   type?: string;
-  fileType?: 'image' | 'video' | 'audio' | null;
+  fileType?: 'image' | 'video' | 'audio' | 'text' | null;
 }
 
 interface FileSystemDirectoryHandle {
@@ -39,13 +39,15 @@ const FileViewer: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
-  const [filter, setFilter] = useState<'all' | 'image' | 'video' | 'audio'>('all');
+  const [filter, setFilter] = useState<'all' | 'image' | 'video' | 'audio' | 'text'>('all');
   const [isDownloadingAll, setIsDownloadingAll] = useState<boolean>(false);
   const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState<boolean>(false);
   const [fileToDelete, setFileToDelete] = useState<FileData | null>(null);
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [deletedCountInfo, setDeletedCountInfo] = useState(0);
+  const [textContent, setTextContent] = useState<{[key: string]: string}>({});
+
   // Dosya silme fonksiyonu
   const deleteFile = async (fileKey: string): Promise<boolean> => {
     try {
@@ -112,6 +114,19 @@ const FileViewer: React.FC = () => {
       setIsDeletingAll(false);
     }
   };
+
+  // TXT dosya içeriğini okuma fonksiyonu
+  const fetchTextContent = async (url: string): Promise<string> => {
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+      return text;
+    } catch (error) {
+      console.error('Metin dosyası okunamadı:', error);
+      return 'Dosya içeriği yüklenemedi.';
+    }
+  };
+
   // Dosya indirme fonksiyonu
   const downloadFile = async (file: FileData, directoryHandle: FileSystemDirectoryHandle | null = null): Promise<void> => {
     try {
@@ -190,8 +205,8 @@ const FileViewer: React.FC = () => {
     }
   };
 
-  // Dosya tipini belirleme fonksiyonu - sadece desteklenen formatlar
-  const getFileType = (file: FileData): 'image' | 'video' | 'audio' | null => {
+  // Dosya tipini belirleme fonksiyonu - TXT desteği eklendi
+  const getFileType = (file: FileData): 'image' | 'video' | 'audio' | 'text' | null => {
     const extension = file.name.split('.').pop()?.toLowerCase();
     const mimeType = file.type?.toLowerCase();
     
@@ -203,6 +218,9 @@ const FileViewer: React.FC = () => {
     }
     if (mimeType?.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(extension || '')) {
       return 'audio';
+    }
+    if (mimeType?.startsWith('text/') || ['txt', 'md', 'rtf', 'log'].includes(extension || '')) {
+      return 'text';
     }
     return null; // Desteklenmeyen formatlar ignore edilecek
   };
@@ -232,6 +250,17 @@ const FileViewer: React.FC = () => {
             .filter((file: FileData) => file.fileType !== null);
           
           setFiles(supportedFiles);
+
+          // TXT dosyalarının içeriğini yükle
+          const textFiles = supportedFiles.filter(file => file.fileType === 'text');
+          const textContentMap: {[key: string]: string} = {};
+          
+          for (const textFile of textFiles) {
+            const content = await fetchTextContent(textFile.url);
+            textContentMap[textFile.key] = content;
+          }
+          
+          setTextContent(textContentMap);
         } else {
           throw new Error(data.error || 'Dosyalar yüklenemedi');
         }
@@ -257,7 +286,8 @@ const FileViewer: React.FC = () => {
     all: files.length,
     image: files.filter(f => f.fileType === 'image').length,
     video: files.filter(f => f.fileType === 'video').length,
-    audio: files.filter(f => f.fileType === 'audio').length
+    audio: files.filter(f => f.fileType === 'audio').length,
+    text: files.filter(f => f.fileType === 'text').length
   };
 
   // Aktif filtrenin etiketini getir
@@ -266,7 +296,8 @@ const FileViewer: React.FC = () => {
       all: 'Tüm Anıları',
       image: 'Tüm Fotoğrafları',
       video: 'Tüm Videoları',
-      audio: 'Tüm Ses Kayıtlarını'
+      audio: 'Tüm Ses Kayıtlarını',
+      text: 'Tüm Mesajları'
     };
     return filterLabels[filter];
   };
@@ -344,6 +375,29 @@ const FileViewer: React.FC = () => {
           </div>
         );
 
+      case 'text':
+        const content = textContent[file.key] || 'Yükleniyor...';
+        const previewContent = isModal ? content : content.substring(0, 150) + (content.length > 150 ? '...' : '');
+        
+        return (
+          <div className={`bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 ${isModal ? '' : 'h-48 flex flex-col'}`}>
+            <div className="flex items-center justify-center mb-3">
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-500 p-3 rounded-full">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="text-center mb-3">
+              <h4 className="font-medium text-gray-800 text-sm truncate">{file.name}</h4>
+              <p className="text-gray-600 text-xs">Mesaj</p>
+            </div>
+            <div className={`bg-white rounded-lg p-3 ${isModal ? 'max-h-96 overflow-y-auto' : 'flex-1 overflow-hidden'}`}>
+              <pre className={`text-gray-700 text-xs whitespace-pre-wrap ${isModal ? '' : 'line-clamp-6'}`} style={{fontFamily: 'inherit'}}>
+                {previewContent}
+              </pre>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -387,7 +441,8 @@ const FileViewer: React.FC = () => {
             { key: 'all' as const, label: 'Tümü', icon: '💫', count: fileCounts.all },
             { key: 'image' as const, label: 'Fotoğraflar', icon: '📸', count: fileCounts.image },
             { key: 'video' as const, label: 'Videolar', icon: '🎥', count: fileCounts.video },
-            { key: 'audio' as const, label: 'Ses Kayıtları', icon: '🎵', count: fileCounts.audio }
+            { key: 'audio' as const, label: 'Ses Kayıtları', icon: '🎵', count: fileCounts.audio },
+            { key: 'text' as const, label: 'Mesajlar', icon: '💌', count: fileCounts.text }
           ].map(filterOption => (
             <button
               key={filterOption.key}
@@ -482,11 +537,13 @@ const FileViewer: React.FC = () => {
                   <div className="absolute top-4 right-2">
                     <div className={`p-1.5 rounded-full ${
                       file.fileType === 'image' ? 'bg-green-500' :
-                      file.fileType === 'video' ? 'bg-red-500' : 'bg-purple-500'
+                      file.fileType === 'video' ? 'bg-red-500' : 
+                      file.fileType === 'audio' ? 'bg-purple-500' : 'bg-blue-500'
                     }`}>
                       {file.fileType === 'image' && <Camera className="w-3 h-3 text-white" />}
                       {file.fileType === 'video' && <Video className="w-3 h-3 text-white" />}
                       {file.fileType === 'audio' && <Music className="w-3 h-3 text-white" />}
+                      {file.fileType === 'text' && <FileText className="w-3 h-3 text-white" />}
                     </div>
                   </div>
                 </div>
@@ -585,7 +642,7 @@ const FileViewer: React.FC = () => {
               </h3>
               
               <p className="text-gray-600 text-center mb-6">
-                &quot;<span className="font-medium">{fileToDelete.name}</span>&quot; dosyasını silmek istediğinizden emin misiniz? 
+                &ldquo;<span className="font-medium">{fileToDelete.name}</span>&rdquo; dosyasını silmek istediğinizden emin misiniz?
                 Bu işlem geri alınamaz.
               </p>
               
