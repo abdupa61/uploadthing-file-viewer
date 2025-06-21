@@ -15,6 +15,12 @@ interface FileData {
   fileType?: 'image' | 'video' | 'audio' | 'text' | null;
 }
 
+interface ParticipantsData {
+  participants: string[];
+  lastUpdated: string;
+  totalCount: number;
+}
+
 interface FileSystemDirectoryHandle {
   getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
 }
@@ -39,7 +45,7 @@ const FileViewer: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<FileData | null>(null);
-  const [filter, setFilter] = useState<'all' | 'image' | 'video' | 'audio' | 'text'>('all');
+  const [filter, setFilter] = useState<'all' | 'image' | 'video' | 'audio' | 'text' | 'participants'>('all');
   const [isDownloadingAll, setIsDownloadingAll] = useState<boolean>(false);
   const [isDeletingAll, setIsDeletingAll] = useState<boolean>(false);
   const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState<boolean>(false);
@@ -47,7 +53,88 @@ const FileViewer: React.FC = () => {
   const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
   const [deletedCountInfo, setDeletedCountInfo] = useState(0);
   const [textContent, setTextContent] = useState<{[key: string]: string}>({});
-
+  const [participants, setParticipants] = useState<string[]>([]);
+  const [participantsLoading, setParticipantsLoading] = useState<boolean>(false);
+  const [participantsError, setParticipantsError] = useState<string | null>(null);
+  
+// Katılımcıları yükle - Alternatif yöntem
+  const loadParticipants = async (): Promise<void> => {
+    try {
+      setParticipantsLoading(true);
+      
+      // Önce normal yöntemle dene
+      const response = await fetch('/api/uploadthing');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('Tüm dosyalar:', data.files.map((file: any) => file.name || file.fileName));
+        
+        // Katılımcı dosyasını bul
+        const participantsFile = data.files.find((file: any) => {
+          const fileName = (file.name || file.fileName || '').toLowerCase();
+          return fileName.includes('katilimci') || 
+                 fileName.includes('katılımcı') ||
+                 fileName.includes('participant') ||
+                 fileName.endsWith('.json');
+        });
+        
+        if (participantsFile) {
+          console.log('Bulunan dosya:', participantsFile);
+          
+          try {
+            const jsonResponse = await fetch(participantsFile.url);
+            const text = await jsonResponse.text();
+            console.log('Ham JSON metni:', text);
+            
+            const participantsData: ParticipantsData = JSON.parse(text);
+            console.log('Parse edilmiş veri:', participantsData);
+            
+            setParticipants(participantsData.participants || []);
+            setParticipantsError(null);
+          } catch (jsonError) {
+            console.error('JSON parse hatası:', jsonError);
+            setParticipantsError('JSON dosyası okunamadı');
+          }
+        } else {
+          // Tüm JSON dosyalarını kontrol et
+          const jsonFiles = data.files.filter((file: any) => 
+            (file.name || file.fileName || '').toLowerCase().endsWith('.json')
+          );
+          
+          console.log('Bulunan JSON dosyaları:', jsonFiles);
+          
+          if (jsonFiles.length > 0) {
+            // İlk JSON dosyasını dene
+            try {
+              const jsonResponse = await fetch(jsonFiles[0].url);
+              const participantsData = await jsonResponse.json();
+              
+              if (participantsData.participants) {
+                setParticipants(participantsData.participants || []);
+                setParticipantsError(null);
+              } else {
+                setParticipantsError('JSON dosyasında katılımcı verisi bulunamadı');
+              }
+            } catch (jsonError) {
+              setParticipantsError('JSON dosyası okunamadı');
+            }
+          } else {
+            setParticipantsError('Hiç JSON dosyası bulunamadı');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Katılımcı listesi yükleme hatası:', err);
+      setParticipantsError(err instanceof Error ? err.message : 'Bilinmeyen hata');
+    } finally {
+      setParticipantsLoading(false);
+    }
+  };
   // Dosya silme fonksiyonu
   const deleteFile = async (fileKey: string): Promise<boolean> => {
     try {
@@ -270,13 +357,14 @@ const FileViewer: React.FC = () => {
       } finally {
         setLoading(false);
       }
+	  await loadParticipants();
     };
 
     loadFiles();
   }, []);
 
   // Filtrelenmiş dosyalar
-  const filteredFiles = files.filter(file => {
+  const filteredFiles = filter === 'participants' ? [] : files.filter(file => {
     if (filter === 'all') return true;
     return file.fileType === filter;
   });
@@ -290,18 +378,19 @@ const FileViewer: React.FC = () => {
     text: files.filter(f => f.fileType === 'text').length
   };
 
-  // Aktif filtrenin etiketini getir
+// Aktif filtrenin etiketini getir
   const getFilterLabel = (): string => {
     const filterLabels: Record<string, string> = {
       all: 'Tüm Anıları',
       image: 'Tüm Fotoğrafları',
       video: 'Tüm Videoları',
       audio: 'Tüm Ses Kayıtlarını',
-      text: 'Tüm Mesajları'
+      text: 'Tüm Mesajları',
+      participants: 'Tüm Katılımcıları'
     };
     return filterLabels[filter];
   };
-
+  
   // Browser desteğini kontrol et
   const isDirectoryPickerSupported = typeof window !== 'undefined' && 'showDirectoryPicker' in window;
 
@@ -442,7 +531,8 @@ const FileViewer: React.FC = () => {
             { key: 'image' as const, label: 'Fotoğraflar', icon: '📸', count: fileCounts.image },
             { key: 'video' as const, label: 'Videolar', icon: '🎥', count: fileCounts.video },
             { key: 'audio' as const, label: 'Ses Kayıtları', icon: '🎵', count: fileCounts.audio },
-            { key: 'text' as const, label: 'Mesajlar', icon: '💌', count: fileCounts.text }
+            { key: 'text' as const, label: 'Mesajlar', icon: '💌', count: fileCounts.text },
+			{ key: 'participants' as const, label: 'Katılımcı Listesi', icon: '👥', count: participants.length }
           ].map(filterOption => (
             <button
               key={filterOption.key}
@@ -518,6 +608,50 @@ const FileViewer: React.FC = () => {
           <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-green-500 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-pulse">
             <span className="text-lg">🗑️</span>
             <span className="font-semibold">{deletedCountInfo} dosya başarıyla silindi!</span>
+          </div>
+        )}
+		{/* Katılımcı Listesi */}
+        {filter === 'participants' && (
+          <div className="bg-white rounded-xl shadow-md p-6 mb-8">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                👥 Katılımcı Listesi
+              </h2>
+              <p className="text-gray-600">
+                Toplam {participants.length} katılımcı
+              </p>
+            </div>
+            
+            {participantsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+                <span className="ml-3 text-gray-600">Katılımcı listesi yükleniyor...</span>
+              </div>
+            ) : participantsError ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-700">Hata: {participantsError}</p>
+              </div>
+            ) : participants.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-4">🤔</div>
+                <p className="text-gray-500 text-lg">Henüz katılımcı listesi bulunamadı.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {participants.map((participant, index) => (
+                  <div key={index} className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex items-center space-x-3">
+                      <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">
+                        {index + 1}
+                      </div>
+                      <span className="text-gray-800 font-medium capitalize">
+                        {participant}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {/* Dosya Listesi */}
