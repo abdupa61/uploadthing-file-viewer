@@ -655,7 +655,7 @@ const FileViewer: React.FC = () => {
           </div>
         )}
         {/* Dosya Listesi */}
-        {filteredFiles.length === 0 ? (
+        {(filteredFiles.length === 0 && filter !== 'participants') ? (
           <div className="text-center py-3">
             <div className="text-1xl mb-4">🤔</div>
             <p className="text-gray-500 text-lg">Bu kategoride henüz anı bulunamadı.</p>
